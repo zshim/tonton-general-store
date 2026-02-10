@@ -1,0 +1,7 @@
+{
+  "name": "tonton's Grocery store",
+  "description": "A comprehensive, AI-powered grocery management system for store managers and customers. Features inventory tracking, POS, sales analytics, and smart recipe suggestions using Gemini models.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
