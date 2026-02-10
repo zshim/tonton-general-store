@@ -66,7 +66,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         if (error) {
           // If table doesn't exist (PGRST205) or connection fails, strictly log warning and keep MOCK_ORDERS
           if (error.code === 'PGRST205') {
-             console.warn("Supabase 'orders' table not found. Using local mock data. Please run the setup SQL script.");
+             console.warn("Supabase 'orders' table not found. App will use local mock data. Run the setup SQL script to enable persistence.");
           } else {
              console.error('Supabase Fetch Error:', error.message);
           }
@@ -204,7 +204,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       date: orderDate
     };
 
-    // 1. Optimistic UI Update
+    // 1. Optimistic UI Update (This ensures user sees success even if DB fails)
     setOrders(prev => [newOrder, ...prev]);
 
     // 2. Send to Supabase
@@ -221,17 +221,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         status: newOrder.status,
         payment_method: newOrder.paymentMethod,
         created_at: newOrder.date
-      }]).select(); // Select to return the inserted row including generated ID
+      }]).select();
 
       if (error) {
         console.error("Supabase Insert Error:", error.message);
+        // Warn but do not alert the user to interrupt flow if it's just a missing table in dev
         if (error.code === 'PGRST205') {
-            alert("Database Error: 'orders' table not found. Please contact administrator.");
+            console.warn("Database Error: 'orders' table not found. Order saved locally in memory only.");
         }
       } else if (data && data[0]) {
         console.log("Order saved to Supabase successfully.");
-        // Optional: Update local order ID with Supabase ID
-        // setOrders(prev => prev.map(o => o.id === newOrder.id ? { ...o, id: data[0].id.toString() } : o));
       }
     } catch (err) {
       console.error("Supabase Exception:", err);

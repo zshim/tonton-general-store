@@ -1,25 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Trash2, Minus, Plus, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { Trash2, Minus, Plus, CreditCard, Banknote, Smartphone, MapPin, User, Loader2 } from 'lucide-react';
 import { TAX_RATE } from '../../constants';
 import { BillCalculator } from '../../components/Calculators';
 import { PaymentMethod } from '../../types';
+import { supabase } from '../../services/supabaseClient';
 
 const Cart = () => {
-  const { cart, removeFromCart, updateCartQuantity, placeOrder } = useApp();
-  const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const { user, cart, removeFromCart, updateCartQuantity, placeOrder } = useApp();
+  
+  // Checkout Form State
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Address & Personal Details
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [street, setStreet] = useState('');
+  const [locality, setLocality] = useState('');
+  const [pinCode, setPinCode] = useState('');
+
+  // Payment Details
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.ONLINE);
+
+  // Pre-fill user data
+  useEffect(() => {
+    if (user) {
+      const names = user.name.split(' ');
+      setFirstName(names[0] || '');
+      setLastName(names.slice(1).join(' ') || '');
+      setMobile(user.phone || '');
+    }
+  }, [user]);
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    const paid = parseFloat(paymentAmount || '0');
-    placeOrder(paid, paymentMethod);
-    setIsCheckingOut(false);
+    setIsSubmitting(true);
+
+    try {
+      // 1. Send data to Supabase 'order_forms' table
+      // We insert one row per product as per the requested table structure
+      const orderPromises = cart.map(item => {
+        return supabase.from('order_forms').insert([{
+          first_name: firstName,
+          last_name: lastName,
+          street: street,
+          locality: locality,
+          pin_code: pinCode,
+          mobile_no: mobile,
+          product_name: item.name,
+          quantity: item.quantity,
+          total_amount: (item.price * item.quantity).toFixed(2)
+        }]);
+      });
+
+      const results = await Promise.all(orderPromises);
+      
+      // Check for any errors in the batch
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        console.error("Supabase Insert Errors:", errors);
+        alert("Some items could not be saved to the database. Please contact support.");
+        // We continue to clear cart locally, or you could stop here.
+      } else {
+        console.log("Order saved to Supabase 'order_forms' successfully.");
+      }
+
+      // 2. Process internal app logic (Update local state, transactions, etc.)
+      const paid = parseFloat(paymentAmount || '0');
+      placeOrder(paid, paymentMethod);
+      
+      // 3. Reset UI
+      setIsCheckingOut(false);
+      setPaymentAmount('');
+      alert("Order placed successfully!");
+
+    } catch (error) {
+      console.error("Checkout Error:", error);
+      alert("An unexpected error occurred during checkout.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -63,7 +130,7 @@ const Cart = () => {
           ))}
         </div>
 
-        {/* Summary */}
+        {/* Summary & Checkout Form */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-fit">
            <h3 className="font-bold text-slate-800 mb-4 text-lg">Order Summary</h3>
            
@@ -78,7 +145,78 @@ const Cart = () => {
                  Proceed to Checkout
                </button>
              ) : (
-               <form onSubmit={handleCheckout} className="space-y-4 bg-slate-50 p-4 rounded-lg animate-fade-in">
+               <form onSubmit={handleCheckout} className="space-y-4 bg-slate-50 p-4 rounded-lg animate-fade-in border border-emerald-100">
+                 
+                 {/* Personal Details */}
+                 <div>
+                    <h4 className="text-sm font-bold text-emerald-800 mb-2 flex items-center gap-2">
+                        <User size={14} /> Personal Details
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                        <input 
+                            required
+                            type="text" 
+                            placeholder="First Name"
+                            value={firstName}
+                            onChange={e => setFirstName(e.target.value)}
+                            className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Last Name"
+                            value={lastName}
+                            onChange={e => setLastName(e.target.value)}
+                            className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                        />
+                    </div>
+                    <input 
+                        required
+                        type="tel" 
+                        placeholder="Mobile Number"
+                        value={mobile}
+                        onChange={e => setMobile(e.target.value)}
+                        className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                    />
+                 </div>
+
+                 {/* Address Details */}
+                 <div>
+                    <h4 className="text-sm font-bold text-emerald-800 mb-2 flex items-center gap-2">
+                        <MapPin size={14} /> Delivery Address
+                    </h4>
+                    <div className="space-y-2">
+                        <input 
+                            required
+                            type="text" 
+                            placeholder="Street / Flat / Building"
+                            value={street}
+                            onChange={e => setStreet(e.target.value)}
+                            className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                            <input 
+                                required
+                                type="text" 
+                                placeholder="Locality"
+                                value={locality}
+                                onChange={e => setLocality(e.target.value)}
+                                className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                            />
+                            <input 
+                                required
+                                type="text" 
+                                placeholder="PIN Code"
+                                value={pinCode}
+                                onChange={e => setPinCode(e.target.value)}
+                                className="w-full p-2 border rounded text-xs outline-none focus:border-emerald-500"
+                            />
+                        </div>
+                    </div>
+                 </div>
+
+                 <hr className="border-slate-200" />
+
+                 {/* Payment Section */}
                  <div>
                    <label className="block text-xs font-semibold text-slate-500 mb-1">Enter Payment Amount</label>
                    <div className="relative">
@@ -135,7 +273,13 @@ const Cart = () => {
 
                  <div className="flex gap-2 pt-2">
                    <button type="button" onClick={() => setIsCheckingOut(false)} className="flex-1 py-2 text-slate-500 text-sm hover:bg-slate-200 rounded">Cancel</button>
-                   <button type="submit" className="flex-1 py-2 bg-emerald-600 text-white text-sm font-bold rounded hover:bg-emerald-700">Confirm</button>
+                   <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="flex-1 py-2 bg-emerald-600 text-white text-sm font-bold rounded hover:bg-emerald-700 flex items-center justify-center gap-2 disabled:opacity-70"
+                   >
+                     {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirm Order"}
+                   </button>
                  </div>
                </form>
              )}
