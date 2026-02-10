@@ -4,7 +4,7 @@ import { UserRole } from '../types';
 import { 
   ShoppingCart, LogOut, LayoutDashboard, Package, 
   User as UserIcon, ChefHat, Menu, X, DollarSign, 
-  FileText, Bell, History, Calculator 
+  FileText, Bell, History, Calculator, Phone 
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -19,6 +19,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
 
   const isManager = user?.role === UserRole.MANAGER;
   const unreadNotifications = notifications.filter(n => n.userId === user?.id && !n.isRead).length;
+
+  // Manager Number (Store) and Support Number (Mock)
+  const STORE_PHONE = '9999999999';
+  const SUPPORT_PHONE = '1800123456';
 
   const NavItem = ({ page, icon: Icon, label }: { page: string, icon: any, label: string }) => (
     <button
@@ -35,6 +39,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
       <Icon size={20} />
       <span className="font-medium">{label}</span>
     </button>
+  );
+
+  const UserProfileSection = () => (
+    <div className="flex items-center gap-3 mb-4 px-2">
+      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold flex-shrink-0">
+        {user?.name.charAt(0)}
+      </div>
+      <div className="overflow-hidden">
+        <p className="text-sm font-semibold text-slate-700 truncate">{user?.name}</p>
+        <p className="text-xs text-slate-500 truncate mb-1">{user?.email}</p>
+        <a 
+          href={`tel:${isManager ? SUPPORT_PHONE : STORE_PHONE}`}
+          className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition-colors"
+        >
+          <Phone size={10} fill="currentColor" className="opacity-80" />
+          {isManager ? 'Call Support' : 'Call Store'}
+        </a>
+      </div>
+    </div>
   );
 
   return (
@@ -82,15 +105,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
-              {user?.name.charAt(0)}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-slate-700 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-            </div>
-          </div>
+          <UserProfileSection />
           <button 
             onClick={logout}
             className="flex items-center space-x-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -143,6 +158,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
              <NavItem page="notifications" icon={Bell} label="Notifications" />
           </nav>
           <div className="pb-8 border-t border-slate-100 pt-4">
+             <div className="px-2 mb-2">
+                <UserProfileSection />
+             </div>
              <button onClick={logout} className="flex items-center space-x-3 w-full px-4 py-3 text-red-600">
                 <LogOut size={20} />
                 <span className="font-medium">Sign Out</span>
