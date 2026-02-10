@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ShoppingBag, Phone, User, ArrowRight, KeyRound, Loader2, Edit2 } from 'lucide-react';
@@ -100,7 +99,7 @@ const Login = () => {
           </h2>
           <p className="text-slate-500 mt-2">
             {step === 'PHONE' 
-              ? (mode === 'LOGIN' ? 'Log in with your phone number' : 'Join SmartGrocer today') 
+              ? (mode === 'LOGIN' ? 'Log in with your phone number' : 'Join ton2Gen today') 
               : `Enter the code sent to ${phone}`}
           </p>
         </div>

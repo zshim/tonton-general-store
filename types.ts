@@ -45,6 +45,7 @@ export interface Product {
   name: string;
   category: string;
   price: number;
+  originalPrice?: number; // Added for discount tracking
   stock: number;
   unit: string;
   description?: string;

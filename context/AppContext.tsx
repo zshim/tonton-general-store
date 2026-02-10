@@ -27,6 +27,7 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   sendReminders: (message: string) => number;
   updateAdvertisement: (message: string) => void;
+  applyDiscount: (productId: string, discountPrice: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -40,7 +41,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: 'n1', userId: 'u2', title: 'Payment Reminder', message: 'You have pending dues of ₹12.96. Please clear them soon.', type: NotificationType.REMINDER, isRead: false, date: new Date().toISOString() },
-  { id: 'n2', userId: 'u2', title: 'Welcome!', message: 'Welcome to SmartGrocer AI.', type: NotificationType.SYSTEM, isRead: true, date: new Date(Date.now() - 100000000).toISOString() },
+  { id: 'n2', userId: 'u2', title: 'Welcome!', message: 'Welcome to ton2Gen AI.', type: NotificationType.SYSTEM, isRead: true, date: new Date(Date.now() - 100000000).toISOString() },
 ];
 
 interface AppProviderProps {
@@ -326,6 +327,39 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setAdvertisementMessage(message);
   };
 
+  const applyDiscount = (productId: string, discountPrice: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const original = product.originalPrice || product.price;
+    // Calculate percentage only if discount is lower than original
+    const percentage = discountPrice < original 
+      ? Math.round(((original - discountPrice) / original) * 100) 
+      : 0;
+
+    // Update Product Price
+    setProducts(prev => prev.map(p => 
+      p.id === productId 
+      ? { ...p, price: discountPrice, originalPrice: original } 
+      : p
+    ));
+
+    // Notify Customers if price dropped
+    if (discountPrice < original) {
+      const customerIds = users.filter(u => u.role === UserRole.CUSTOMER).map(u => u.id);
+      const newNotes: Notification[] = customerIds.map(uid => ({
+        id: `promo_${Date.now()}_${uid}`,
+        userId: uid,
+        title: "⚡ Flash Sale Alert!",
+        message: `Great News! ${product.name} is now ${percentage}% OFF! Get it for ₹${discountPrice.toFixed(2)}.`,
+        type: NotificationType.PROMOTION,
+        isRead: false,
+        date: new Date().toISOString()
+      }));
+      setNotifications(prev => [...newNotes, ...prev]);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -350,7 +384,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       payDues,
       markNotificationRead,
       sendReminders,
-      updateAdvertisement
+      updateAdvertisement,
+      applyDiscount
     }}>
       {children}
     </AppContext.Provider>

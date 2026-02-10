@@ -2,13 +2,18 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { generateProductDescription } from '../../services/geminiService';
-import { Plus, Wand2, Package, Search, Upload, Image as ImageIcon, X, Camera } from 'lucide-react';
+import { Plus, Wand2, Package, Search, Upload, Image as ImageIcon, X, Camera, Tag } from 'lucide-react';
 
 const Inventory = () => {
-  const { products, addProduct } = useApp();
+  const { products, addProduct, applyDiscount } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Discount Modal State
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [discountProduct, setDiscountProduct] = useState<Product | null>(null);
+  const [newDiscountPrice, setNewDiscountPrice] = useState<string>('');
   
   // Refs & State for Image Handling
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,6 +138,23 @@ const Inventory = () => {
     }
   };
 
+  // Discount Logic
+  const openDiscountModal = (product: Product) => {
+    setDiscountProduct(product);
+    setNewDiscountPrice(product.price.toString());
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleApplyDiscount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (discountProduct && newDiscountPrice) {
+      applyDiscount(discountProduct.id, parseFloat(newDiscountPrice));
+      setIsDiscountModalOpen(false);
+      setDiscountProduct(null);
+      alert(`Discount applied to ${discountProduct.name}. Customers have been notified.`);
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
@@ -187,12 +209,13 @@ const Inventory = () => {
               <th className="p-4 font-semibold text-slate-600 text-sm text-right">Price</th>
               <th className="p-4 font-semibold text-slate-600 text-sm text-right">Stock</th>
               <th className="p-4 font-semibold text-slate-600 text-sm">Unit</th>
+              <th className="p-4 font-semibold text-slate-600 text-sm text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {displayedProducts.length === 0 ? (
                <tr>
-                 <td colSpan={5} className="p-8 text-center text-slate-400">
+                 <td colSpan={6} className="p-8 text-center text-slate-400">
                     No products found in this category.
                  </td>
                </tr>
@@ -215,11 +238,29 @@ const Inventory = () => {
                       {product.category}
                     </span>
                   </td>
-                  <td className="p-4 text-sm text-slate-800 font-medium text-right">₹{product.price.toFixed(2)}</td>
+                  <td className="p-4 text-sm text-slate-800 font-medium text-right">
+                    {product.originalPrice && product.originalPrice > product.price ? (
+                      <div>
+                        <span className="text-xs line-through text-slate-400 mr-2">₹{product.originalPrice.toFixed(2)}</span>
+                        <span className="text-emerald-600">₹{product.price.toFixed(2)}</span>
+                      </div>
+                    ) : (
+                      `₹${product.price.toFixed(2)}`
+                    )}
+                  </td>
                   <td className={`p-4 text-sm text-right font-medium ${product.stock < 20 ? 'text-red-600' : 'text-emerald-600'}`}>
                     {product.stock}
                   </td>
                   <td className="p-4 text-sm text-slate-500">{product.unit}</td>
+                  <td className="p-4 text-center">
+                    <button 
+                      onClick={() => openDiscountModal(product)}
+                      className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition-colors"
+                      title="Apply Discount"
+                    >
+                      <Tag size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -375,6 +416,51 @@ const Inventory = () => {
                 <button type="button" onClick={closeModal} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 shadow-sm">Save Product</button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Discount Modal */}
+      {isDiscountModalOpen && discountProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Tag className="text-amber-500" /> Apply Discount
+              </h3>
+              <button onClick={() => setIsDiscountModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleApplyDiscount}>
+               <div className="mb-4">
+                  <p className="text-sm text-slate-600 mb-1">Product: <span className="font-semibold">{discountProduct.name}</span></p>
+                  <p className="text-sm text-slate-600 mb-4">Current Price: <span className="font-semibold">₹{(discountProduct.originalPrice || discountProduct.price).toFixed(2)}</span></p>
+                  
+                  <label className="block text-xs font-bold text-slate-500 mb-2">New Sale Price (₹)</label>
+                  <input 
+                    required 
+                    type="number" 
+                    step="0.01" 
+                    className="w-full border p-3 rounded-lg text-lg font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500 outline-none" 
+                    value={newDiscountPrice} 
+                    onChange={e => setNewDiscountPrice(e.target.value)} 
+                    placeholder="0.00"
+                  />
+               </div>
+               
+               <p className="text-xs text-slate-400 mb-4">
+                 Setting this price will automatically send a promotional notification to all customers.
+               </p>
+
+               <div className="flex justify-end gap-3">
+                 <button type="button" onClick={() => setIsDiscountModalOpen(false)} className="px-4 py-2 text-slate-600 text-sm hover:bg-slate-100 rounded-lg">Cancel</button>
+                 <button type="submit" className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 shadow-sm">
+                   Apply Offer
+                 </button>
+               </div>
             </form>
           </div>
         </div>
