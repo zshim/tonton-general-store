@@ -28,6 +28,8 @@ app.use(helmet());
 app.use(mongoSanitize());
 
 // 3. Rate Limiting (Prevent Brute Force/DDoS)
+// Adjusted for Netlify: Trust proxy if behind load balancer
+app.set('trust proxy', 1);
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
@@ -59,9 +61,13 @@ const connectDB = async () => {
   }
 
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || '');
+    // MongoDB Connection Options for Serverless
+    // bufferCommands: false helps prevent timeouts if connection drops
+    await mongoose.connect(process.env.MONGO_URI || '', {
+       bufferCommands: false,
+    });
     isConnected = true;
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`MongoDB Connected: ${mongoose.connection.host}`);
   } catch (error: any) {
     console.error(`Error: ${error.message}`);
     // Do not exit process in serverless; let the request fail gracefully
@@ -70,6 +76,7 @@ const connectDB = async () => {
 
 // Middleware to ensure DB is connected for every request
 app.use(async (req, res, next) => {
+  // Context wrapper to ensure connection is alive
   await connectDB();
   next();
 });
@@ -90,8 +97,7 @@ app.get('/', (req, res) => {
 // Error Handling (Must be last middleware)
 app.use(errorHandler);
 
-// Only listen if running directly (Dev mode), otherwise export for Vercel
-// We check if require is defined to ensure it doesn't crash in strict ESM environments
+// Only listen if running directly (Dev mode), otherwise export for Serverless (Netlify/Vercel)
 if (typeof require !== 'undefined' && require.main === module) {
   const PORT = process.env.PORT || 5000;
   connectDB().then(() => {
