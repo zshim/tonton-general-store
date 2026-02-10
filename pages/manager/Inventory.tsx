@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { generateProductDescription } from '../../services/geminiService';
-import { Plus, Wand2, Package, Search, Upload, Image as ImageIcon, X, Camera, Tag } from 'lucide-react';
+import { Plus, Wand2, Package, Search, Upload, Image as ImageIcon, X, Camera, Tag, Calculator, Percent, ChevronDown } from 'lucide-react';
 
 const Inventory = () => {
   const { products, addProduct, applyDiscount } = useApp();
@@ -24,22 +24,44 @@ const Inventory = () => {
   // Form State
   const [newItem, setNewItem] = useState<Partial<Product>>({
     name: '',
-    category: 'General',
+    category: '',
     price: 0,
+    originalPrice: 0, // Used as MRP
     stock: 0,
     unit: 'pc',
     description: '',
     imageUrl: ''
   });
+
+  // Specific state for the pricing calculator in the form
+  const [priceForm, setPriceForm] = useState({
+    mrp: '',
+    discountPercent: '',
+    sellingPrice: ''
+  });
+
   const [generatingDesc, setGeneratingDesc] = useState(false);
 
-  // 1. Get Unique Categories for Filter Tabs
+  // 1. Get Unique Categories for Filter Tabs (Only those that exist in products)
   const categories = useMemo(() => {
     const uniqueCats = new Set(products.map(p => p.category));
     return ['All', ...Array.from(uniqueCats).sort()];
   }, [products]);
 
-  // 2. Filter and Sort Products Alphabetically
+  // 2. Extensive Predefined Categories for "Add Product" + Custom ones
+  const PREDEFINED_CATEGORIES = [
+    "Fruits", "Vegetables", "Dairy & Milk", "Bakery", "Eggs & Meat", 
+    "Grains & Rice", "Spices & Masalas", "Oil & Ghee", "Snacks & Chips", 
+    "Beverages", "Instant Food", "Household", "Personal Care", 
+    "Baby Care", "Pet Food", "Frozen Food", "Health & Wellness"
+  ];
+
+  const formCategories = useMemo(() => {
+    const uniqueCats = new Set([...PREDEFINED_CATEGORIES, ...products.map(p => p.category)]);
+    return Array.from(uniqueCats).sort();
+  }, [products]);
+
+  // 3. Filter and Sort Products Alphabetically
   const displayedProducts = useMemo(() => {
     return products
       .filter(p => {
@@ -77,6 +99,33 @@ const Inventory = () => {
       }
     };
   }, [isCameraOpen]);
+
+  // Pricing Calculation Logic
+  const handlePriceChange = (field: 'mrp' | 'discount' | 'selling', value: string) => {
+    let mrp = parseFloat(field === 'mrp' ? value : priceForm.mrp) || 0;
+    let discount = parseFloat(field === 'discount' ? value : priceForm.discountPercent) || 0;
+    let selling = parseFloat(field === 'selling' ? value : priceForm.sellingPrice) || 0;
+
+    if (field === 'mrp') {
+      // If MRP changes, recalculate selling price based on existing discount
+      selling = mrp - (mrp * (discount / 100));
+      setPriceForm({ mrp: value, discountPercent: priceForm.discountPercent, sellingPrice: selling.toFixed(2) });
+    } else if (field === 'discount') {
+      // If Discount changes, recalculate selling price
+      if (value === '' || parseFloat(value) < 0) discount = 0;
+      if (parseFloat(value) > 100) discount = 100;
+      selling = mrp - (mrp * (discount / 100));
+      setPriceForm({ mrp: priceForm.mrp, discountPercent: value, sellingPrice: selling.toFixed(2) });
+    } else if (field === 'selling') {
+      // If Selling Price changes, recalculate discount percentage
+      if (mrp > 0) {
+        discount = ((mrp - selling) / mrp) * 100;
+        setPriceForm({ mrp: priceForm.mrp, discountPercent: discount.toFixed(1), sellingPrice: value });
+      } else {
+        setPriceForm({ ...priceForm, sellingPrice: value });
+      }
+    }
+  };
 
   const handleGenerateDesc = async () => {
     if (!newItem.name) return;
@@ -118,27 +167,31 @@ const Inventory = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setIsCameraOpen(false);
+    setPriceForm({ mrp: '', discountPercent: '', sellingPrice: '' });
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newItem.name && newItem.price) {
+    if (newItem.name && priceForm.sellingPrice) {
+      const finalCategory = newItem.category?.trim() || 'General';
       addProduct({
         id: `p${Date.now()}`,
         name: newItem.name,
-        category: newItem.category!,
-        price: Number(newItem.price),
+        category: finalCategory,
+        price: parseFloat(priceForm.sellingPrice),
+        originalPrice: parseFloat(priceForm.mrp) || parseFloat(priceForm.sellingPrice), // Store MRP as originalPrice
         stock: Number(newItem.stock),
         unit: newItem.unit!,
         description: newItem.description,
         imageUrl: newItem.imageUrl || `https://picsum.photos/200/200?random=${Date.now()}`
       });
       closeModal();
-      setNewItem({ name: '', category: 'General', price: 0, stock: 0, unit: 'pc', description: '', imageUrl: '' });
+      setNewItem({ name: '', category: '', price: 0, originalPrice: 0, stock: 0, unit: 'pc', description: '', imageUrl: '' });
+      setPriceForm({ mrp: '', discountPercent: '', sellingPrice: '' });
     }
   };
 
-  // Discount Logic
+  // Discount Modal Logic (Existing feature)
   const openDiscountModal = (product: Product) => {
     setDiscountProduct(product);
     setNewDiscountPrice(product.price.toString());
@@ -288,9 +341,78 @@ const Inventory = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
-                  <input required type="text" className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
-                    value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} />
+                  <div className="relative">
+                    <input 
+                      required 
+                      type="text" 
+                      list="categoryOptions"
+                      className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
+                      value={newItem.category} 
+                      onChange={e => setNewItem({...newItem, category: e.target.value})}
+                      placeholder="Select or type..." 
+                    />
+                    <datalist id="categoryOptions">
+                       {formCategories.map(cat => (
+                         <option key={cat} value={cat} />
+                       ))}
+                    </datalist>
+                  </div>
                 </div>
+              </div>
+
+              {/* Pricing Section with Auto-Calculation */}
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                      <Calculator size={14} /> Pricing & Discounts
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                      <div>
+                          <label className="block text-[10px] font-semibold text-slate-500 mb-1">MRP (₹)</label>
+                          <input 
+                            required 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="0.00"
+                            className="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 outline-none" 
+                            value={priceForm.mrp}
+                            onChange={e => handlePriceChange('mrp', e.target.value)}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-semibold text-slate-500 mb-1">Discount (%)</label>
+                          <div className="relative">
+                            <input 
+                                type="number" 
+                                step="0.1" 
+                                placeholder="0"
+                                className="w-full border p-2 pr-6 rounded text-sm focus:ring-2 focus:ring-emerald-500 outline-none" 
+                                value={priceForm.discountPercent}
+                                onChange={e => handlePriceChange('discount', e.target.value)}
+                            />
+                            <Percent size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-semibold text-emerald-600 mb-1">Selling Price (₹)</label>
+                          <input 
+                            required 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="0.00"
+                            className="w-full border-2 border-emerald-100 p-2 rounded text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none bg-white" 
+                            value={priceForm.sellingPrice}
+                            onChange={e => handlePriceChange('selling', e.target.value)}
+                          />
+                      </div>
+                  </div>
+                  {parseFloat(priceForm.mrp) > parseFloat(priceForm.sellingPrice) && (
+                      <div className="mt-2 text-right">
+                          <span className="text-xs text-slate-500">Price Saving: </span>
+                          <span className="text-xs font-bold text-emerald-600">
+                              ₹{(parseFloat(priceForm.mrp) - parseFloat(priceForm.sellingPrice)).toFixed(2)}
+                          </span>
+                      </div>
+                  )}
               </div>
               
               {/* Image Upload Section */}
@@ -377,12 +499,7 @@ const Inventory = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Price (₹)</label>
-                  <input required type="number" step="0.01" className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
-                    value={newItem.price} onChange={e => setNewItem({...newItem, price: parseFloat(e.target.value)})} />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Stock</label>
                   <input required type="number" className="w-full border p-2 rounded focus:ring-2 focus:ring-emerald-500 outline-none" 
@@ -421,7 +538,7 @@ const Inventory = () => {
         </div>
       )}
 
-      {/* Discount Modal */}
+      {/* Discount Modal (For applying discount to existing items) */}
       {isDiscountModalOpen && discountProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl animate-fade-in">

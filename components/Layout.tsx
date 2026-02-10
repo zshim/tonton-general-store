@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
         <div className="p-6 border-b border-slate-100">
           <h1 className="text-2xl font-bold text-emerald-700 flex items-center gap-2">
             <Package className="h-8 w-8" />
-            ton2Gen
+            ton2Store
           </h1>
           <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-semibold">
             {isManager ? 'Manager Portal' : 'Customer App'}
@@ -106,7 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
            {isMobileMenuOpen ? <X /> : <Menu />}
         </button>
-        <span className="font-bold text-lg text-emerald-700">ton2Gen</span>
+        <span className="font-bold text-lg text-emerald-700">ton2Store</span>
         <div className="relative">
            <button onClick={() => onNavigate('notifications')}>
              <Bell className="text-slate-600" />

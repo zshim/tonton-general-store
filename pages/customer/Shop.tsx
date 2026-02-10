@@ -18,9 +18,10 @@ const Shop = () => {
           const discountPercent = isDiscounted 
             ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100) 
             : 0;
+          const savingAmount = isDiscounted ? (product.originalPrice! - product.price).toFixed(2) : 0;
 
           return (
-            <div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow relative">
+            <div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow relative group">
               {isDiscounted && (
                 <div className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">
                   {discountPercent}% OFF
@@ -34,7 +35,7 @@ const Shop = () => {
                 </div>
               </div>
               <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800 line-clamp-1">{product.name}</h3>
                   <div className="text-right">
                     {isDiscounted && (
@@ -43,9 +44,18 @@ const Shop = () => {
                     <span className="font-bold text-emerald-600">₹{product.price.toFixed(2)}</span>
                   </div>
                 </div>
+                
+                {isDiscounted && (
+                   <div className="text-right mb-2">
+                       <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                           Save ₹{savingAmount}
+                       </span>
+                   </div>
+                )}
+
                 <p className="text-xs text-slate-500 mb-4 h-10 line-clamp-2">{product.description}</p>
                 
-                <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-50">
                    <span className="text-xs text-slate-400">per {product.unit}</span>
                    <button 
                     onClick={() => addToCart(product)}

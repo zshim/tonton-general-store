@@ -41,7 +41,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: 'n1', userId: 'u2', title: 'Payment Reminder', message: 'You have pending dues of ₹12.96. Please clear them soon.', type: NotificationType.REMINDER, isRead: false, date: new Date().toISOString() },
-  { id: 'n2', userId: 'u2', title: 'Welcome!', message: 'Welcome to ton2Gen AI.', type: NotificationType.SYSTEM, isRead: true, date: new Date(Date.now() - 100000000).toISOString() },
+  { id: 'n2', userId: 'u2', title: 'Welcome!', message: 'Welcome to ton2Store AI.', type: NotificationType.SYSTEM, isRead: true, date: new Date(Date.now() - 100000000).toISOString() },
 ];
 
 interface AppProviderProps {

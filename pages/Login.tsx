@@ -99,7 +99,7 @@ const Login = () => {
           </h2>
           <p className="text-slate-500 mt-2">
             {step === 'PHONE' 
-              ? (mode === 'LOGIN' ? 'Log in with your phone number' : 'Join ton2Gen today') 
+              ? (mode === 'LOGIN' ? 'Log in with your phone number' : 'Join ton2Store today') 
               : `Enter the code sent to ${phone}`}
           </p>
         </div>
